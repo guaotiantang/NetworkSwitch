@@ -249,8 +249,20 @@ func CheckConnectivity() (bool, bool) {
 		log.Printf("Config not loaded, using default values")
 		return false, false
 	}
-	internalOK := testConnection(config.InternalIP+":80", 3*time.Second)
-	externalOK := testConnection(config.ExternalIP+":80", 3*time.Second)
+	
+	// 首先检查网络接口是否启用
+	internalInterfaceEnabled := isInterfaceEnabled(config.InternalConn)
+	externalInterfaceEnabled := isInterfaceEnabled(config.ExternalConn)
+	
+	// 只有接口启用时才测试连通性
+	var internalOK, externalOK bool
+	if internalInterfaceEnabled {
+		internalOK = testConnection(config.InternalIP+":80", 3*time.Second)
+	}
+	if externalInterfaceEnabled {
+		externalOK = testConnection(config.ExternalIP+":80", 3*time.Second)
+	}
+	
 	return internalOK, externalOK
 }
 
@@ -262,6 +274,22 @@ func testConnection(address string, timeout time.Duration) bool {
 	}
 	conn.Close()
 	return true
+}
+
+// isInterfaceEnabled 检查指定名称的网络接口是否启用
+func isInterfaceEnabled(interfaceName string) bool {
+	interfaces, err := GetNetworkInterfaces()
+	if err != nil {
+		log.Printf("Failed to get network interfaces: %v", err)
+		return false
+	}
+	
+	for _, iface := range interfaces {
+		if iface.Name == interfaceName {
+			return iface.IsEnabled && iface.OperStatus == IF_OPER_STATUS_UP
+		}
+	}
+	return false
 }
 
 // NetworkMonitor 管理网络接口
