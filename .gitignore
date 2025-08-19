@@ -1,0 +1,63 @@
+# 编译输出文件
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# 测试二进制文件
+*.test
+
+# 输出目录
+/dist/
+/build/
+/bin/
+
+# Go 工作空间文件
+go.work
+go.work.sum
+
+# 依赖目录
+vendor/
+
+# 环境变量文件
+.env
+.env.local
+.env.*.local
+
+# 日志文件
+*.log
+logs/
+
+# 操作系统生成的文件
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE 和编辑器文件
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 临时文件
+*.tmp
+*.temp
+
+# Windows 系统文件
+desktop.ini
+
+# 备份文件
+*.bak
+*.backup
+
+# 配置文件（如果包含敏感信息）
+# config.ini
+
+# 自定义图标文件（可选，根据需要决定是否上传）
+# icon.ico
