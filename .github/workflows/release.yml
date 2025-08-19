@@ -1,0 +1,152 @@
+name: Release Build
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+    
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+    
+    - name: Install dependencies
+      run: go mod download
+    
+    - name: Build Windows AMD64 (GUI)
+      run: |
+        go build -ldflags="-H windowsgui -s -w" -o network_monitor_windows_amd64.exe
+      env:
+        GOOS: windows
+        GOARCH: amd64
+        CGO_ENABLED: 1
+    
+    - name: Build Windows AMD64 (Console)
+      run: |
+        go build -ldflags="-s -w" -o network_monitor_windows_amd64_console.exe
+      env:
+        GOOS: windows
+        GOARCH: amd64
+        CGO_ENABLED: 1
+    
+    - name: Build Windows 386 (GUI)
+      run: |
+        go build -ldflags="-H windowsgui -s -w" -o network_monitor_windows_386.exe
+      env:
+        GOOS: windows
+        GOARCH: 386
+        CGO_ENABLED: 1
+    
+    - name: Create release directory
+      run: |
+        New-Item -ItemType Directory -Path "release" -Force
+        Copy-Item "network_monitor_windows_amd64.exe" "release\network_monitor.exe"
+        Copy-Item "network_monitor_windows_amd64_console.exe" "release\network_monitor_console.exe"
+        Copy-Item "config.ini" "release\"
+        Copy-Item "icon.ico" "release\"
+        Copy-Item "README.md" "release\"
+        Copy-Item "LICENSE" "release\"
+    
+    - name: Create ZIP package
+      run: |
+        $version = "${{ github.ref_name }}"
+        if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+          $version = "${{ github.event.inputs.version }}"
+        }
+        Compress-Archive -Path "release\*" -DestinationPath "network_monitor_${version}_windows_amd64.zip"
+    
+    - name: Generate release notes
+      id: release_notes
+      run: |
+        $version = "${{ github.ref_name }}"
+        if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+          $version = "${{ github.event.inputs.version }}"
+        }
+        
+        $notes = @"
+        ## 🎉 网络监控程序 ${version}
+        
+        ### ✨ 主要功能
+        - 🔄 自动网络切换：智能检测内外网连通性，自动切换网络接口
+        - 🎯 系统托盘集成：完全集成到Windows系统托盘，支持右键菜单操作
+        - ⚙️ 配置文件驱动：通过config.ini文件灵活配置所有参数
+        - 🎮 监控控制：支持启动/暂停双网检测功能
+        - 🖼️ 自定义图标：支持自定义系统托盘图标
+        
+        ### 📋 系统要求
+        - Windows 10/11
+        - 管理员权限（用于网络接口控制）
+        
+        ### 📥 下载文件说明
+        - **network_monitor_${version}_windows_amd64.zip** - 完整发布包（推荐）
+        - **network_monitor_windows_amd64.exe** - 64位主程序（无窗口版本）
+        - **network_monitor_windows_amd64_console.exe** - 64位控制台版本（调试用）
+        - **network_monitor_windows_386.exe** - 32位主程序（兼容性版本）
+        
+        ### 🚀 快速开始
+        1. 下载并解压完整发布包
+        2. 根据网络环境修改 `config.ini` 配置文件
+        3. 右键以管理员身份运行 `network_monitor.exe`
+        4. 程序将在系统托盘显示图标
+        
+        ### ⚙️ 配置说明
+        请参考压缩包内的 `README.md` 文件获取详细的配置和使用说明。
+        
+        ### 🐛 问题反馈
+        如遇到问题，请在 [Issues](../../issues) 页面提交反馈。
+        "@
+        
+        # 将发布说明保存到文件
+        $notes | Out-File -FilePath "release_notes.md" -Encoding UTF8
+        
+        # 设置输出变量
+        echo "notes_file=release_notes.md" >> $env:GITHUB_OUTPUT
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version || github.ref_name }}
+        name: 网络监控程序 ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version || github.ref_name }}
+        body_path: ${{ steps.release_notes.outputs.notes_file }}
+        files: |
+          network_monitor_${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version || github.ref_name }}_windows_amd64.zip
+          network_monitor_windows_amd64.exe
+          network_monitor_windows_amd64_console.exe
+          network_monitor_windows_386.exe
+        draft: false
+        prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: network-monitor-builds
+        path: |
+          network_monitor_windows_amd64.exe
+          network_monitor_windows_amd64_console.exe
+          network_monitor_windows_386.exe
+          network_monitor_${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version || github.ref_name }}_windows_amd64.zip
+        retention-days: 30

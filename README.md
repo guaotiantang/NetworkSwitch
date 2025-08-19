@@ -178,6 +178,34 @@ go build -o network_monitor.exe
 
 MIT License - 详见 [LICENSE](LICENSE) 文件
 
+## 发布版本
+
+### 自动发布（推荐）
+
+1. **创建Git标签**
+   ```bash
+   git tag v1.0.0
+   git push origin v1.0.0
+   ```
+
+2. **GitHub Actions自动构建**
+   - 推送标签后，GitHub Actions会自动构建多平台版本
+   - 自动创建GitHub Release并上传文件
+   - 生成完整的发布说明
+
+### 手动发布
+
+1. **使用构建脚本**
+   ```powershell
+   .\build_release.ps1 -Version "v1.0.0" -OpenFolder
+   ```
+
+2. **手动上传到GitHub Releases**
+   - 访问仓库的Releases页面
+   - 创建新发布并上传构建的文件
+
+详细发布流程请参考 [RELEASE.md](RELEASE.md) 文档。
+
 ## 贡献
 
 欢迎提交 Issue 和 Pull Request！
