@@ -1,5 +1,9 @@
 name: Release Build
 
+permissions:
+  contents: write
+  packages: write
+
 on:
   push:
     tags:
@@ -69,21 +73,25 @@ jobs:
         Copy-Item "README.md" "release\"
         Copy-Item "LICENSE" "release\"
     
-    - name: Create ZIP package
+    - name: Get version
+      id: get_version
       run: |
-        $version = "${{ github.ref_name }}"
         if ("${{ github.event_name }}" -eq "workflow_dispatch") {
           $version = "${{ github.event.inputs.version }}"
+        } else {
+          $version = "${{ github.ref_name }}"
         }
+        echo "version=$version" >> $env:GITHUB_OUTPUT
+    
+    - name: Create ZIP package
+      run: |
+        $version = "${{ steps.get_version.outputs.version }}"
         Compress-Archive -Path "release\*" -DestinationPath "network_monitor_${version}_windows_amd64.zip"
     
     - name: Generate release notes
       id: release_notes
       run: |
-        $version = "${{ github.ref_name }}"
-        if ("${{ github.event_name }}" -eq "workflow_dispatch") {
-          $version = "${{ github.event.inputs.version }}"
-        }
+        $version = "${{ steps.get_version.outputs.version }}"
         
         $notes = @"
         ## 🎉 网络监控程序 ${version}
@@ -127,16 +135,16 @@ jobs:
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
-        tag_name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version || github.ref_name }}
-        name: 网络监控程序 ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version || github.ref_name }}
+        tag_name: ${{ steps.get_version.outputs.version }}
+        name: 网络监控程序 ${{ steps.get_version.outputs.version }}
         body_path: ${{ steps.release_notes.outputs.notes_file }}
         files: |
-          network_monitor_${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version || github.ref_name }}_windows_amd64.zip
+          network_monitor_${{ steps.get_version.outputs.version }}_windows_amd64.zip
           network_monitor_windows_amd64.exe
           network_monitor_windows_amd64_console.exe
           network_monitor_windows_386.exe
         draft: false
-        prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
+        prerelease: ${{ contains(steps.get_version.outputs.version, 'alpha') || contains(steps.get_version.outputs.version, 'beta') || contains(steps.get_version.outputs.version, 'rc') }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     
@@ -148,5 +156,5 @@ jobs:
           network_monitor_windows_amd64.exe
           network_monitor_windows_amd64_console.exe
           network_monitor_windows_386.exe
-          network_monitor_${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version || github.ref_name }}_windows_amd64.zip
+          network_monitor_${{ steps.get_version.outputs.version }}_windows_amd64.zip
         retention-days: 30
